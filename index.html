@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ujian CBT - FIKIH Kelas IX</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React 18 & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    
+    <!-- Babel Standalone (Untuk transpile JSX) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        /* Anti-Cheat: Cegah seleksi teks */
+        body {
+            user-select: none; 
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+        /* Kustomisasi Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-cyan-500 to-blue-600 min-h-screen text-slate-800 font-sans" oncontextmenu="return false;">
+    
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // ==========================================
+        // 1. KONFIGURASI UJIAN
+        // ==========================================
+        // WAJIB GANTI URL DI BAWAH INI DENGAN URL WEB APP GOOGLE APPS SCRIPT ANDA
+        const GOOGLE_SHEETS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzg_-zQ-qfGal6e2z2TH7T4fyHy1yz6GDtomkRPGLszopryvI9MkSmSEhGXiFd7mERc7A/exec"; 
+        
+        const EXAM_CONFIG = {
+            mapel: "FIKIH",
+            jenisUjian: "PENILAIAN TENGAH SEMESTER (PTS) 2026/2027",
+            kelas: "IX",
+            durasiMenit: 60,
+            storageKey: "cbt_FIKIH_IX"
+        };
+
+        // ==========================================
+        // 2. DATA SOAL (Diekstrak Full dari PDF)
+        // ==========================================
+        const rawQuestionsData = [
+            // BAGIAN A - Pilihan Ganda (20 Soal)
+            { id: 1, type: 'mc', text: 'Shalat jamak adalah shalat yang dikerjakan dengan cara...', options: ['Digabung waktunya', 'Dikurangi rakaatnya', 'Ditambah rakaatnya', 'Dikerjakan berjamaah'], answer: 'Digabung waktunya' },
+            { id: 2, type: 'mc', text: 'Shalat qashar adalah shalat yang dikerjakan dengan cara...', options: ['Mengulang shalat', 'Meringkas rakaat', 'Mengakhirkan shalat', 'Menambah bacaan'], answer: 'Meringkas rakaat' },
+            { id: 3, type: 'mc', text: 'Jamak taqdim dilakukan pada...', options: ['Waktu shalat pertama', 'Waktu shalat kedua', 'Waktu malam saja', 'Waktu subuh saja'], answer: 'Waktu shalat pertama' },
+            { id: 4, type: 'mc', text: 'Jamak ta\'khir dilakukan pada...', options: ['Waktu shalat pertama', 'Waktu shalat kedua', 'Sebelum masuk waktu', 'Setelah subuh'], answer: 'Waktu shalat kedua' },
+            { id: 5, type: 'mc', text: 'Shalat yang boleh dijamak adalah...', options: ['Subuh dan Zuhur', 'Zuhur dan Ashar', 'Ashar dan Maghrib', 'Subuh dan Isya'], answer: 'Zuhur dan Ashar' },
+            { id: 6, type: 'mc', text: 'Pasangan shalat yang boleh dijamak adalah...', options: ['Maghrib dan Isya', 'Subuh dan Zuhur', 'Ashar dan Isya', 'Subuh dan Ashar'], answer: 'Maghrib dan Isya' },
+            { id: 7, type: 'mc', text: 'Shalat yang boleh diqashar adalah shalat yang berjumlah...', options: ['2 rakaat', '3 rakaat', '4 rakaat', '5 rakaat'], answer: '4 rakaat' },
+            { id: 8, type: 'mc', text: 'Shalat yang tidak boleh diqashar adalah...', options: ['Zuhur', 'Ashar', 'Isya', 'Maghrib'], answer: 'Maghrib' },
+            { id: 9, type: 'mc', text: 'Jumlah rakaat shalat Zuhur ketika diqashar menjadi...', options: ['1 rakaat', '2 rakaat', '3 rakaat', '4 rakaat'], answer: '2 rakaat' },
+            { id: 10, type: 'mc', text: 'Salah satu syarat umum shalat jamak dan qashar adalah...', options: ['Sedang musafir', 'Sedang sakit ringan', 'Sedang di rumah', 'Sedang bermain'], answer: 'Sedang musafir' },
+            { id: 11, type: 'mc', text: 'Perjalanan yang membolehkan jamak dan qashar sebaiknya bukan untuk...', options: ['Mencari ilmu', 'Silaturahmi', 'Kemaksiatan', 'Berdagang halal'], answer: 'Kemaksiatan' },
+            { id: 12, type: 'mc', text: 'Urutan jamak taqdim Zuhur dan Ashar yang benar adalah...', options: ['Ashar lalu Zuhur', 'Zuhur lalu Ashar', 'Subuh lalu Zuhur', 'Maghrib lalu Ashar'], answer: 'Zuhur lalu Ashar' },
+            { id: 13, type: 'mc', text: 'Niat jamak taqdim dilakukan saat...', options: ['Shalat pertama', 'Setelah salam kedua', 'Sebelum tidur', 'Setelah pulang'], answer: 'Shalat pertama' },
+            { id: 14, type: 'mc', text: 'Contoh pelaksanaan jamak ta\'khir adalah...', options: ['Zuhur dan Ashar di waktu Ashar', 'Zuhur dan Ashar di waktu Zuhur', 'Maghrib dan Isya di waktu Maghrib', 'Subuh dan Zuhur di waktu Subuh'], answer: 'Zuhur dan Ashar di waktu Ashar' },
+            { id: 15, type: 'mc', text: 'Shalat jenazah hukumnya...', options: ['Fardu ain', 'Fardu kifayah', 'Sunah biasa', 'Mubah'], answer: 'Fardu kifayah' },
+            { id: 16, type: 'mc', text: 'Shalat jenazah dilakukan tanpa...', options: ['Niat', 'Takbir', 'Rukuk dan sujud', 'Salam'], answer: 'Rukuk dan sujud' },
+            { id: 17, type: 'mc', text: 'Jumlah takbir dalam shalat jenazah adalah...', options: ['2 takbir', '3 takbir', '4 takbir', '5 takbir'], answer: '4 takbir' },
+            { id: 18, type: 'mc', text: 'Bacaan setelah takbir pertama dalam shalat jenazah adalah...', options: ['Al-Fatihah', 'Tahiyat', 'Doa qunut', 'Adzan'], answer: 'Al-Fatihah' },
+            { id: 19, type: 'mc', text: 'Bacaan setelah takbir kedua dalam shalat jenazah adalah...', options: ['Shalawat', 'Iqamah', 'Sujud tilawah', 'Tasyahud akhir'], answer: 'Shalawat' },
+            { id: 20, type: 'mc', text: 'Seorang musafir menempuh perjalanan jauh dari pagi hingga sore. Ia belum shalat Zuhur dan tiba saat waktu Ashar. Cara yang tepat adalah...', options: ['Jamak ta\'khir Zuhur dan Ashar', 'Jamak taqdim Zuhur dan Ashar', 'Qashar Subuh dan Maghrib', 'Mengganti dengan shalat jenazah'], answer: 'Jamak ta\'khir Zuhur dan Ashar' },
+            
+            // BAGIAN B - Esai Singkat (5 Soal)
+            { id: 21, type: 'short_text', text: 'Jelaskan pengertian shalat jamak dan shalat qashar secara singkat.', answer: '' },
+            { id: 22, type: 'short_text', text: 'Sebutkan shalat apa saja yang boleh dijamak dan shalat apa saja yang boleh diqashar.', answer: '' },
+            { id: 23, type: 'short_text', text: 'Jelaskan perbedaan jamak taqdim dan jamak ta\'khir.', answer: '' },
+            { id: 24, type: 'short_text', text: 'Sebutkan rukun utama shalat jenazah secara berurutan.', answer: '' },
+            { id: 25, type: 'short_text', text: 'Seorang musafir berangkat sebelum Zuhur dan diperkirakan baru berhenti saat waktu Ashar. Ia ingin melaksanakan shalat Zuhur dan Ashar ketika berhenti. Jelaskan jenis shalat yang tepat dan cara pelaksanaannya secara singkat.', answer: '' }
+        ];
+
+        // ==========================================
+        // 3. UTILITIES & ICONS (Murni SVG Anti-Crash)
+        // ==========================================
+        const IconWarning = () => <svg className="w-14 h-14 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>;
+        const IconClock = () => <svg className="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
+        const IconCheck = () => <svg className="w-16 h-16 text-green-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
+
+        function shuffleArray(array) {
+            const arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        // ==========================================
+        // 4. KOMPONEN MODAL STATIS (Cegah Flicker)
+        // ==========================================
+        const CustomModal = ({ isOpen, title, message, type, onConfirm, onCancel, confirmText, cancelText }) => {
+            if (!isOpen) return null;
+            return (
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-md">
+                    <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 text-center">
+                        {type === 'warning' ? <IconWarning /> : <IconCheck />}
+                        <h3 className="text-2xl font-bold text-gray-800 mb-2">{title}</h3>
+                        <p className="text-gray-600 mb-6">{message}</p>
+                        <div className="flex justify-center gap-4">
+                            {onCancel && (
+                                <button onClick={onCancel} className="px-5 py-2 bg-gray-200 text-gray-800 rounded-lg font-bold hover:bg-gray-300 transition">
+                                    {cancelText || 'Batal'}
+                                </button>
+                            )}
+                            <button onClick={onConfirm} className={`px-5 py-2 text-white rounded-lg font-bold transition ${type === 'warning' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                                {confirmText || 'Mengerti'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // ==========================================
+        // 5. KOMPONEN UTAMA (App)
+        // ==========================================
+        function App() {
+            const [step, setStep] = useState('loading'); 
+            const [studentData, setStudentData] = useState({ name: '', cls: EXAM_CONFIG.kelas, date: new Date().toISOString().split('T')[0] });
+            const [questions, setQuestions] = useState([]);
+            const [answers, setAnswers] = useState({});
+            const [timeLeft, setTimeLeft] = useState(EXAM_CONFIG.durasiMenit * 60);
+            const [violations, setViolations] = useState(0);
+            const [currentIndex, setCurrentIndex] = useState(0);
+            const [score, setScore] = useState(0);
+            const [isSubmitting, setIsSubmitting] = useState(false);
+
+            // State untuk Custom Modal
+            const [modalConfig, setModalConfig] = useState({ isOpen: false, title: '', message: '', type: 'warning', onConfirm: null, onCancel: null });
+
+            // Refs Anti-Cheat
+            const examActiveRef = useRef(false);
+            const violationRef = useRef(violations);
+
+            useEffect(() => { violationRef.current = violations; }, [violations]);
+            useEffect(() => { examActiveRef.current = (step === 'exam'); }, [step]);
+
+            // INIT & CEK LOCALSTORAGE
+            useEffect(() => {
+                const saved = localStorage.getItem(EXAM_CONFIG.storageKey);
+                if (saved) setStep('resume');
+                else setStep('login');
+
+                // Mencegah Copy-Paste & Klik Kanan
+                const preventDefault = (e) => { if (examActiveRef.current) e.preventDefault(); };
+                document.addEventListener('contextmenu', preventDefault);
+                document.addEventListener('copy', preventDefault);
+                document.addEventListener('paste', preventDefault);
+
+                return () => {
+                    document.removeEventListener('contextmenu', preventDefault);
+                    document.removeEventListener('copy', preventDefault);
+                    document.removeEventListener('paste', preventDefault);
+                };
+            }, []);
+
+            // DETEKSI PINDAH TAB & KELUAR FULLSCREEN
+            useEffect(() => {
+                const handleVisibility = () => {
+                    if (document.hidden && examActiveRef.current) {
+                        triggerViolation("Anda terdeteksi berpindah tab atau meminimalkan browser.");
+                    }
+                };
+                const handleFullscreen = () => {
+                    if (!document.fullscreenElement && examActiveRef.current && step !== 'finished') {
+                        triggerViolation("Anda terdeteksi keluar dari mode Fullscreen.");
+                    }
+                };
+
+                document.addEventListener('visibilitychange', handleVisibility);
+                document.addEventListener('fullscreenchange', handleFullscreen);
+
+                return () => {
+                    document.removeEventListener('visibilitychange', handleVisibility);
+                    document.removeEventListener('fullscreenchange', handleFullscreen);
+                };
+            }, [step]);
+
+            const triggerViolation = (reason) => {
+                const currentV = violationRef.current + 1;
+                setViolations(currentV);
+                saveProgress(null, null, currentV);
+
+                if (currentV === 1) {
+                    showModal({
+                        title: 'PERINGATAN KERAS!',
+                        message: `${reason} Ini adalah pelanggaran ke-1. Jika mengulangi, ujian otomatis dihentikan!`,
+                        type: 'warning',
+                        onConfirm: () => {
+                            closeModal();
+                            requestFullscreen(); 
+                        }
+                    });
+                } else if (currentV >= 2) {
+                    showModal({
+                        title: 'UJIAN DIHENTIKAN!',
+                        message: 'Pelanggaran berulang terdeteksi. Lembar ujian dikunci dan sedang dikirim otomatis.',
+                        type: 'warning',
+                        confirmText: 'Tutup',
+                        onConfirm: () => closeModal()
+                    });
+                    examActiveRef.current = false;
+                    autoSubmit("Pelanggaran Berulang (Auto-Submit)");
+                }
+            };
+
+            // FUNGSI AUTO-SAVE
+            const saveProgress = (ans = answers, time = timeLeft, v = violations) => {
+                if(step !== 'exam') return;
+                const data = { studentData, questions, answers: ans, timeLeft: time, violations: v };
+                localStorage.setItem(EXAM_CONFIG.storageKey, JSON.stringify(data));
+            };
+
+            // TIMER ENGINE
+            useEffect(() => {
+                let timer;
+                if (step === 'exam' && timeLeft > 0) {
+                    timer = setInterval(() => {
+                        setTimeLeft(prev => {
+                            const newTime = prev - 1;
+                            if (newTime % 3 === 0) saveProgress(answers, newTime, violations); // Save tiap 3 detik
+                            if (newTime <= 0) {
+                                clearInterval(timer);
+                                autoSubmit("Waktu Habis (Auto-Submit)");
+                                return 0;
+                            }
+                            return newTime;
+                        });
+                    }, 1000);
+                }
+                return () => clearInterval(timer);
+            }, [step, answers, violations]);
+
+            // KONTROL UJIAN
+            const requestFullscreen = () => {
+                const elem = document.documentElement;
+                if (elem.requestFullscreen) elem.requestFullscreen().catch(err => console.log(err));
+            };
+
+            const startNewExam = () => {
+                let shuffledQs = shuffleArray(rawQuestionsData).map(q => {
+                    if (q.type === 'mc' && q.options) return { ...q, options: shuffleArray(q.options) };
+                    return q;
+                });
+                setQuestions(shuffledQs);
+                setAnswers({});
+                setTimeLeft(EXAM_CONFIG.durasiMenit * 60);
+                setViolations(0);
+                setCurrentIndex(0);
+                setStep('exam');
+                setTimeout(() => requestFullscreen(), 300);
+            };
+
+            const resumeExam = () => {
+                const saved = JSON.parse(localStorage.getItem(EXAM_CONFIG.storageKey));
+                if (saved) {
+                    setStudentData(saved.studentData);
+                    setQuestions(saved.questions);
+                    setAnswers(saved.answers || {});
+                    setTimeLeft(saved.timeLeft);
+                    setViolations(saved.violations || 0);
+                    setStep('exam');
+                    setTimeout(() => requestFullscreen(), 300);
+                } else {
+                    setStep('login');
+                }
+            };
+
+            const handleAnswer = (val) => {
+                const newAnswers = { ...answers, [questions[currentIndex].id]: val };
+                setAnswers(newAnswers);
+                saveProgress(newAnswers, timeLeft, violations);
+            };
+
+            const showModal = (config) => setModalConfig({ ...config, isOpen: true });
+            const closeModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
+
+            const promptSubmit = () => {
+                showModal({
+                    title: 'Selesai & Kumpulkan?',
+                    message: 'Pastikan semua jawaban telah terisi. Anda tidak bisa mengubah jawaban setelah menekan Kumpulkan.',
+                    type: 'check',
+                    confirmText: 'Ya, Kumpulkan!',
+                    cancelText: 'Batal',
+                    onCancel: closeModal,
+                    onConfirm: () => {
+                        closeModal();
+                        autoSubmit("Selesai Normal");
+                    }
+                });
+            };
+
+            // PENILAIAN & KIRIM KE GOOGLE SHEETS
+            const autoSubmit = async (keterangan) => {
+                if(isSubmitting) return;
+                setIsSubmitting(true);
+                setStep('finished'); 
+
+                let mcCount = 0;
+                let correctCount = 0;
+                let rincianArr = [];
+
+                // Sort kembali urutan ID asli untuk pelaporan
+                const sortedQuestions = [...questions].sort((a, b) => a.id - b.id);
+
+                sortedQuestions.forEach(q => {
+                    const ans = answers[q.id];
+                    let rincian = `Soal ${q.id}: KOSONG`;
+
+                    if (q.type === 'mc') {
+                        mcCount++;
+                        if (ans) {
+                            if (ans === q.answer) {
+                                correctCount++;
+                                rincian = `Soal ${q.id}: BENAR`;
+                            } else {
+                                rincian = `Soal ${q.id}: SALAH (Pilih: ${ans}, Kunci: ${q.answer})`;
+                            }
+                        }
+                    } else if (q.type === 'short_text') {
+                        if (ans && ans.trim() !== '') {
+                            rincian = `Soal ${q.id}: ESAI DIJAWAB (Pilih: ${ans.substring(0, 50)}...)`;
+                        }
+                    }
+                    rincianArr.push(rincian);
+                });
+
+                const finalScore = mcCount > 0 ? Math.round((correctCount / mcCount) * 100) : 0;
+                setScore(finalScore);
+                const rincianJawabanText = rincianArr.join(" | ");
+
+                const payload = {
+                    nama: studentData.name,
+                    kelas: studentData.cls,
+                    tanggal: studentData.date,
+                    skor: finalScore,
+                    pelanggaran: violationRef.current,
+                    keterangan: keterangan,
+                    rincianJawaban: rincianJawabanText
+                };
+
+                try {
+                    await fetch(GOOGLE_SHEETS_WEB_APP_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'text/plain' },
+                        body: JSON.stringify(payload)
+                    });
+                } catch (e) { console.error("Error:", e); }
+
+                localStorage.removeItem(EXAM_CONFIG.storageKey);
+                setIsSubmitting(false);
+                if(document.fullscreenElement) {
+                    document.exitFullscreen().catch(()=>{});
+                }
+            };
+
+            const formatTime = (secs) => {
+                const h = Math.floor(secs / 3600);
+                const m = Math.floor((secs % 3600) / 60);
+                const s = secs % 60;
+                if (h > 0) return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+                return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+            };
+
+            // RENDER UI
+            if (step === 'loading') return null;
+
+            if (step === 'resume') {
+                return (
+                    <div className="flex items-center justify-center min-h-screen p-4">
+                        <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md text-center">
+                            <IconWarning />
+                            <h2 className="text-2xl font-bold mb-4">Sesi Tersimpan Ditemukan!</h2>
+                            <p className="text-gray-600 mb-6">Sistem mendeteksi Anda memiliki progres ujian yang belum selesai.</p>
+                            <div className="flex flex-col gap-3">
+                                <button onClick={resumeExam} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg w-full">Lanjutkan Ujian (Pulihkan)</button>
+                                <button onClick={() => { localStorage.removeItem(EXAM_CONFIG.storageKey); setStep('login'); }} className="bg-red-100 hover:bg-red-200 text-red-700 font-bold py-3 rounded-lg w-full">Mulai Ulang (Hapus Progres)</button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (step === 'login') {
+                return (
+                    <div className="flex flex-col items-center justify-center min-h-screen p-4">
+                        <div className="text-center mb-8 text-white">
+                            <h1 className="text-4xl font-extrabold mb-2 drop-shadow-md">{EXAM_CONFIG.mapel}</h1>
+                            <p className="text-lg font-medium text-cyan-100 drop-shadow">{EXAM_CONFIG.jenisUjian} - KELAS {EXAM_CONFIG.kelas}</p>
+                        </div>
+                        <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
+                            <h2 className="text-2xl font-bold text-gray-800 mb-6 border-b pb-4">Identitas Peserta</h2>
+                            <form onSubmit={(e) => { e.preventDefault(); startNewExam(); }} className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-1">Nama Lengkap</label>
+                                    <input required type="text" className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" value={studentData.name} onChange={e => setStudentData({...studentData, name: e.target.value.toUpperCase()})} />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-1">Kelas</label>
+                                    <input required type="text" className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" value={studentData.cls} onChange={e => setStudentData({...studentData, cls: e.target.value.toUpperCase()})} />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-1">Tanggal Ujian</label>
+                                    <input required type="date" className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" value={studentData.date} onChange={e => setStudentData({...studentData, date: e.target.value})} />
+                                </div>
+                                <button type="submit" className="w-full mt-6 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-bold py-3 rounded-lg shadow-lg">Mulai Ujian</button>
+                                <p className="text-xs text-center text-red-500 mt-2 font-medium">Layar akan berubah menjadi Fullscreen. Dilarang pindah tab!</p>
+                            </form>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (step === 'finished') {
+                return (
+                    <div className="flex items-center justify-center min-h-screen p-4">
+                        <div className="bg-white p-10 rounded-2xl shadow-2xl w-full max-w-md text-center">
+                            <IconCheck />
+                            <h2 className="text-3xl font-extrabold text-gray-800 mb-2">Ujian Selesai!</h2>
+                            <p className="text-gray-600 mb-6">Jawaban telah berhasil dikirim.</p>
+                            <div className="bg-slate-50 border rounded-xl p-5 mb-8 text-left space-y-3">
+                                <div className="flex justify-between border-b pb-2"><span className="text-gray-500 font-medium">Nama:</span><span className="font-bold">{studentData.name}</span></div>
+                                <div className="flex justify-between border-b pb-2"><span className="text-gray-500 font-medium">Kelas:</span><span className="font-bold">{studentData.cls}</span></div>
+                                <div className="flex justify-between items-center pt-2"><span className="text-gray-500 font-medium">Skor Pilihan Ganda:</span><span className="text-4xl font-black text-blue-600">{score}</span></div>
+                            </div>
+                            <button onClick={() => window.location.reload()} className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-8 rounded-lg w-full transition">Tutup Aplikasi</button>
+                        </div>
+                    </div>
+                );
+            }
+
+            const currentQ = questions[currentIndex];
+            const isAnswered = (id) => answers[id] !== undefined && answers[id] !== '';
+
+            return (
+                <div className="flex flex-col h-screen bg-slate-100 overflow-hidden">
+                    <CustomModal {...modalConfig} />
+                    
+                    <header className="bg-white shadow-sm flex-shrink-0 z-10">
+                        <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+                            <div>
+                                <h1 className="text-xl font-black text-blue-800">{EXAM_CONFIG.mapel}</h1>
+                                <p className="text-xs font-semibold text-gray-500">{studentData.name} - KELAS {studentData.cls}</p>
+                            </div>
+                            <div className={`px-4 py-2 rounded-lg font-mono font-bold flex items-center shadow-inner ${timeLeft < 300 ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-slate-100 text-slate-800'}`}>
+                                <IconClock /> {formatTime(timeLeft)}
+                            </div>
+                        </div>
+                    </header>
+
+                    <main className="flex-1 max-w-7xl mx-auto w-full flex flex-col md:flex-row gap-6 p-4 h-full min-h-0">
+                        <section className="flex-1 flex flex-col bg-white rounded-2xl shadow border border-slate-200 min-h-0">
+                            <div className="p-4 border-b bg-slate-50 flex justify-between items-center">
+                                <span className="font-bold text-gray-700">Soal No. {currentIndex + 1}</span>
+                                <span className="text-xs px-2 py-1 bg-cyan-100 text-cyan-700 font-bold rounded-md uppercase">{currentQ?.type === 'mc' ? 'Pilihan Ganda' : 'Esai Singkat'}</span>
+                            </div>
+                            <div className="p-6 overflow-y-auto flex-1 text-lg text-gray-800">
+                                {currentQ?.image && <img src={currentQ.image} alt="Soal" className="mb-6 rounded-lg max-w-full h-auto shadow" />}
+                                <p className="leading-relaxed mb-6 font-medium whitespace-pre-wrap">{currentQ?.text}</p>
+                                
+                                {currentQ?.type === 'mc' && (
+                                    <div className="space-y-3">
+                                        {currentQ.options.map((opt, i) => (
+                                            <label key={i} className={`flex items-start p-4 rounded-xl border-2 cursor-pointer transition-colors ${answers[currentQ.id] === opt ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                                                <input type="radio" name={`q_${currentQ.id}`} className="mt-1 w-5 h-5 text-blue-600 focus:ring-blue-500" checked={answers[currentQ.id] === opt} onChange={() => handleAnswer(opt)} />
+                                                <span className="ml-3 text-base">{opt}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                )}
+                                {currentQ?.type === 'short_text' && (
+                                    <textarea rows="5" placeholder="Ketik jawaban esai di sini..." className="w-full p-4 border-2 border-gray-200 rounded-xl focus:border-blue-500 outline-none" value={answers[currentQ.id] || ''} onChange={(e) => handleAnswer(e.target.value)}></textarea>
+                                )}
+                            </div>
+                            <div className="p-4 border-t bg-slate-50 flex justify-between gap-2">
+                                <button disabled={currentIndex === 0} onClick={() => setCurrentIndex(c => Math.max(0, c - 1))} className="px-5 py-2.5 rounded-lg font-semibold bg-white border text-gray-700 hover:bg-gray-100 disabled:opacity-50">Sebelumnya</button>
+                                {currentIndex === questions.length - 1 ? (
+                                    <button onClick={promptSubmit} className="px-5 py-2.5 rounded-lg font-bold bg-green-500 hover:bg-green-600 text-white">Selesai & Kumpulkan</button>
+                                ) : (
+                                    <button onClick={() => setCurrentIndex(c => Math.min(questions.length - 1, c + 1))} className="px-5 py-2.5 rounded-lg font-semibold bg-blue-600 hover:bg-blue-700 text-white">Selanjutnya</button>
+                                )}
+                            </div>
+                        </section>
+
+                        <aside className="w-full md:w-72 flex flex-col bg-white rounded-2xl shadow border border-slate-200 h-64 md:h-full flex-shrink-0">
+                            <div className="p-4 border-b bg-slate-50 font-bold text-gray-700 flex justify-between">Navigasi <span className="text-xs bg-gray-200 px-2 py-1 rounded">{Object.keys(answers).length}/{questions.length}</span></div>
+                            <div className="p-4 overflow-y-auto flex-1">
+                                <div className="grid grid-cols-5 gap-2">
+                                    {questions.map((q, idx) => {
+                                        const answered = isAnswered(q.id);
+                                        const active = idx === currentIndex;
+                                        return (
+                                            <button key={q.id} onClick={() => setCurrentIndex(idx)} className={`h-10 w-full rounded-lg font-bold text-sm transition-all ${active ? 'ring-4 ring-blue-300 z-10' : ''} ${answered ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200 border'}`}>{idx + 1}</button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                            <div className="p-4 border-t"><button onClick={promptSubmit} className="w-full py-3 rounded-lg font-bold bg-gray-800 hover:bg-gray-900 text-white shadow">Kumpulkan Ujian</button></div>
+                        </aside>
+                    </main>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
